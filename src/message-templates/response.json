@@ -1,0 +1,6 @@
+{ 
+    message: {
+        data: "Here's some data"
+    },
+    error: null
+}

@@ -1,0 +1,5 @@
+{
+    width: 2,
+    presence: [true, false, true, true, true, false],
+    coordinates: {x: 4, y: 10}
+}

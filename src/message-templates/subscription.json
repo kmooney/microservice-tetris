@@ -1,0 +1,6 @@
+{ 
+    game_id: 1,
+    property: "lines", /** can be blank too **/
+    response_method: "GET",
+    response_url: "http://path.to.url/blah/blah"
+}
