@@ -18,22 +18,22 @@ The gameboard expects the tick message to be sent
 by the client.  We can expect between 2 to 10 ticks
 per client * second.
 
-##### Properties:
+##### Properties
 
 * game id
 
 #### game
 
-_POST_
+##### POST
 
 The gameboard expects new games to be created by
 clients.  A client can have multiple games.
 
-Properties:
+##### Properties:
 
 * client_id
 
-Response:
+##### Response
 
 When POSTed to, with a client ID, the gameboard
 service creates a new gameboard and returns a
@@ -41,14 +41,14 @@ response that contains a status message.
 The status message will have the form of 
 `game_status` below.
 
-_GET_
+##### GET
 
 When a GET request is sent and a `game_id` is also provided
 the game board responds with a `game_status`, detailed below.
 
 #### subscription
 
-_POST_ 
+##### POST 
 
 When a subscription is created, it is a client telling the
 gameboard service that when the status of the game changes
@@ -63,7 +63,7 @@ rather than constantly polling the gameboard service.  After all,
 the gameboard service will already be handling 2-10 ticks per 
 client second.
 
-Properties
+###### Properties
 
 * game_id
 * property
@@ -90,7 +90,7 @@ The `response` message is always sent as a response to
 any HTTP request.  The response always contains an error,
 a message, or both.
 
-Properties:
+##### Properties
 
 * Error - the error message and code.
 * Message - the response message.  Any of the message types below.
@@ -107,13 +107,87 @@ in the request.
  
 For instance, one could request `/game_status/<<game_id>>/` for 
 the entire status, but one could also request `/game_status/<<game_id>>/score` for 
-just the score.
+just the score.  
 
-*Properties*
+##### Properties
 
 * lines - the line count
 * score - the current score
 * board - a list of shapes, with position and orientation
-* level - the current level, also used by the client to determine
-the tick speed.
+* level - the current level, also used by the client to determine the tick speed.
 
+## Rotator
+
+The rotator service takes a serialized shape object,
+rotates either clockwise or counterclockwise depending on 
+the request, and returns a new shape object (which should in turn
+replace the current shape and position as maintained by the _Current Shape_
+service, below).
+
+### Accepts
+
+#### rotate
+
+##### POST
+
+##### Shapedata - A list of shape information:
+* shapewidth 
+* shapepresence 
+
+* Direction - "CCW" or "CW"
+
+##### Response
+
+##### Response with the following message (see Response, above)
+    * Shapedata
+
+## Shape Generator
+
+### Accepts
+
+#### Shaperequest
+
+##### GET
+Response with the following message (see Response, above)
+* Shapedata
+
+## Current Shape Service
+
+Current shape maintains some state.  It maintains the current
+(x,y) cooridinates, shape data, and rotation.
+
+The current shape service depends on the gameboard.
+It has to know whether the piece has hit the bottom of the board, 
+and whether the Current Shape PUT is valid.
+
+### Accepts
+
+#### Tick
+##### GET
+Expects a request with the following:
+* Game ID
+
+#### Current Shape
+##### GET
+Expects a request with the following:
+* Game ID
+
+Responds with the following message (see Response, above)
+* Shapedata
+
+##### PUT
+Expects a message with the following contents:
+* Game ID
+* Shapedata
+
+Responds with either a 200 OK to indicate that the submitted
+Shapedata (with optional position data) is valid, or it responds
+with an error that indicates that the position data indicated in the PUT is
+invalid and that the Current Shape has not been updated to that.
+
+### Sends
+### Callbacks
+#### Shape Change Event
+Clients can register for a shape change event, by sending a Callback request.
+When the callback is executed, a Shapedata is sent to the client who registered for the
+request.
