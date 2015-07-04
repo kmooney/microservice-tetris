@@ -63,7 +63,7 @@ func (api *API) requestHandler(resource Resource) http.HandlerFunc {
             case "POST":
                 code, data = resource.Post(values)
             case "PUT":
-                code, data = resource.Post(values)
+                code, data = resource.Put(values)
             case "DELETE":
                 code, data = resource.Delete(values)
             default:
