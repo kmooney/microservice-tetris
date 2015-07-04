@@ -13,9 +13,24 @@ type TickResource struct {
     restlite.PutNotSupported
     restlite.DeleteNotSupported
     restlite.PostNotSupported
+    Gameboards Gameboards
 }
 
-func (TickResource) Get(values url.Values) (int, interface{}) { 
+/** THINK: What's the semantically correct HTTP verb to perform a tick - probably
+    not a GET, why would you "GET" a Tick resource? **/
+func (tr TickResource) Get(values url.Values) (int, interface{}) {
+    var game_id int
+    var err error
+    game_id_param := values["game_id"]
+    if len(game_id_param) != 1 { 
+        return 500, "Bad game_id parameter"
+    } else { 
+        game_id, err = strconv.Atoi(game_id_param[0])
+        if err != nil { 
+            return 500, "Cannot convert game_id to int"
+        }
+    }
+    tr.Gameboards[game_id].Tick()
     return 200, fmt.Sprintf("OK - Game # %v", values["game_id"])
 }
 
@@ -26,13 +41,35 @@ type Gameboard struct {
     Lines int
     Score int
     Shapedata map[int]map[int]bool
+    Gameover bool
 }
 
-type Gameboards []Gameboard
+func (gb Gameboard) Tick () (error) { 
+    /*
+       1.  Check to see if any rows are completed.
+           a)  If yes, line count should be increased
+           b)  If yes, score should be increased
+           c)  If yes, completed lines should be cleared
+
+       2.  Should the game be over?
+
+       3.  Should the game be deleted?  (how to tell?)
+           a)  If yes, delete the game from the map
+           b)  Notify callback listeners.
+
+       4. Has anything changed (gameover, lines, level, score, shapes)?
+           a)  Notify callback listeners.
+    */
+
+    return nil
+}
+
+type Gameboards map[int]Gameboard
 
 type GameboardResource struct { 
     restlite.PutNotSupported
     restlite.DeleteNotSupported
+    Gameboards Gameboards
 }
 
 func (GameboardResource) Get(values url.Values) (int, interface{}) { 
@@ -175,9 +212,14 @@ func (sr SubscriptionResource) Delete(values url.Values) (int, interface{}) {
 }
 
 func main() {
-    
+    gameboards := make(Gameboards)    
+
     gameboardResource := new(GameboardResource)
+    gameboardResource.Gameboards = gameboards
+
     tickResource := new(TickResource)
+    tickResource.Gameboards = gameboards
+
     subscriptionResource := new(SubscriptionResource)
     subscriptionResource.Subscriptions = make(Subscriptions)
 
