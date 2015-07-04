@@ -71,16 +71,107 @@ func (sr SubscriptionResource) Get(values url.Values) (int, interface{}) {
     return 500, fmt.Sprintf("Need to define game_id parameter")
 }
 
-func (SubscriptionResource) Post(values url.Values) (int, interface{}) { 
-    return 400, "Not Defined Yet"
+func (sr SubscriptionResource) Post(values url.Values) (int, interface{}) { 
+    var game_id int
+    var response_method string
+    var property string
+    var response_url string
+    var err error
+
+    game_id_param := values["game_id"]
+    property_param := values["property"]
+    response_method_param := values["response_method"]
+    response_url_param := values["response_url"]
+
+    if len(game_id_param) != 1 {
+        return 500, "Need to define game_id"
+    } else { 
+        game_id, err = strconv.Atoi(game_id_param[0])
+        if (err != nil) { 
+            return 500, fmt.Sprintf("Game ID must be an integer: %v", err)
+        }
+    }
+    if len(response_method_param) != 1 { 
+        response_method = "POST"
+    } else { 
+        response_method = response_method_param[0]
+    }
+    if len(response_url_param) != 1 { 
+        return 500, "Need to define response_url"
+    } else { 
+        response_url = response_url_param[0]
+    }
+    if len(property_param) == 1 {
+        property = property_param[0]
+    }
+    _, exists := sr.Subscriptions[game_id]
+    if exists { 
+        return 500, "Subscription already set - use PUT if you want to change it"
+    }
+    sr.Subscriptions[game_id] = Subscription{game_id, property, response_method, response_url} 
+    return 200, "Posted"
 }
 
-func (SubscriptionResource) Put(values url.Values) (int, interface{}) { 
-    return 400, "Not Defined Yet"
+func (sr SubscriptionResource) Put(values url.Values) (int, interface{}) { 
+    var game_id int
+    var response_method string
+    var property string
+    var response_url string
+    var err error
+
+    game_id_param := values["game_id"]
+    property_param := values["property"]
+    response_method_param := values["response_method"]
+    response_url_param := values["response_url"]
+
+    if len(game_id_param) != 1 {
+        return 500, "Need to define game_id"
+    } else { 
+        game_id, err = strconv.Atoi(game_id_param[0])
+        if (err != nil) { 
+            return 500, fmt.Sprintf("Game ID must be an integer: %v", err)
+        }
+    }
+    if len(response_method_param) != 1 { 
+        response_method = "POST"
+    } else { 
+        response_method = response_method_param[0]
+    }
+    if len(response_url_param) != 1 { 
+        return 500, "Need to define response_url"
+    } else { 
+        response_url = response_url_param[0]
+    }
+    if len(property_param) == 1 {
+        property = property_param[0]
+    }
+    _, exists := sr.Subscriptions[game_id]
+    if !exists { 
+        return 404, "Subscription does not exist, POST to create one."
+    }
+    sr.Subscriptions[game_id] = Subscription{game_id, property, response_method, response_url} 
+    return 200, "Put"
 }
 
-func (SubscriptionResource) Delete(values url.Values) (int, interface{}) { 
-    return 400, "Not Defined Yet"
+func (sr SubscriptionResource) Delete(values url.Values) (int, interface{}) { 
+    var game_id int
+    var err error
+    game_id_param := values["game_id"]
+    if len(game_id_param) == 1 { 
+        game_id, err = strconv.Atoi(game_id_param[0])
+        if err != nil { 
+            return 500, fmt.Sprintf("%v", err)
+        }
+    } else { 
+        return 500, "Game ID must be set exactly once"
+    }
+
+    _, exists := sr.Subscriptions[game_id]
+    if (exists) { 
+        delete(sr.Subscriptions, game_id)
+        return 200, "Deleted"
+    }
+    return 404, "No such subscription"
 }
 
 func main() {
