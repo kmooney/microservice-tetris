@@ -75,6 +75,41 @@ client second.
 It will either respond with a 200 OK or an error message, see
 `response` below.
 
+#### validate_shape
+
+##### POST
+
+When a shape is submitted, it is checked for whether it is currently
+in a valid position.  If the position is valid, returns 200 OK, if not
+valid, returns HTTP 412 - Precondition failed (the precondition being that
+the shape is in a valid position on the board).
+
+###### Properties
+
+* game_id
+* shapedata
+
+#### place_shape
+
+##### POST
+
+When a shape is submitted, if it can be placed, the shapedata for the
+given gameboard will be updated to reflect that this shape has been
+placed.  
+
+If the shape is placed, the http response will be 200 (OK), if it cannot
+be placed the response will be 412 - Precondition Failed (in this case, 
+the precondition is that the shape is placeable)
+
+It could be possible for the client to independently track whether the 
+shape can be placed and only call this function when it believes that the
+shape is placeable.
+
+###### Properties
+
+* game_id
+* shapedata
+
 ##### Callback
 
 It will send a `game_status` message as detailed below, with the
