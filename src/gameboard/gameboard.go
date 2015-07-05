@@ -5,9 +5,95 @@ import (
     "restlite"
     "fmt"
     "strconv"
+    "errors"
+    "encoding/json"
 )
 
+const WIDTH uint = 10
+const HEIGHT uint = 20
+
 // TODO: Create validation and shape placement resources.
+
+
+/** Shape **/
+type Shape struct { 
+    Width int
+    Data []bool
+    Position [2]int
+}
+
+type ShapeResource struct { 
+    restlite.DeleteNotSupported
+    restlite.PostNotSupported
+    Gameboards Gameboards
+}
+
+func GetParam(values url.Values, p string) ([]byte, error) { 
+    param := values[p]
+    if len(param) == 0 {
+        return []byte{0}, errors.New("Parameter must exist")
+    }
+
+    return []byte(param[0]), nil
+}
+
+func (vr ShapeResource) Get(values url.Values) (int, interface{}) {
+    var game_id int
+    var err error
+    var param []byte
+    var shape Shape 
+
+    param, err = GetParam(values, "game_id")
+    if err != nil { 
+        return 500, err.Error()
+    }
+    game_id, err = strconv.Atoi(string(param))
+    if err != nil { 
+        return 500, err.Error()
+    }
+
+    param, err = GetParam(values, "shapedata")
+    if err != nil { 
+        return 500, err.Error()
+    }
+
+    err = json.Unmarshal(param, shape)
+    if err != nil { 
+        return 500, fmt.Sprintf("Invalid shapedata: %s", err.Error())
+    }
+    // check validity, else return error
+    return 200, fmt.Sprintf("OK %i, %v", game_id, shape)
+}
+
+// put the shape in the position 
+func (sr ShapeResource) Put(values url.Values) (int, interface{}) { 
+    var game_id int
+    var err error
+    var param []byte
+    var shape Shape 
+
+    param, err = GetParam(values, "game_id")
+    if err != nil { 
+        return 500, err.Error()
+    }
+    game_id, err = strconv.Atoi(string(param))
+    if err != nil { 
+        return 500, err.Error()
+    }
+
+    param, err = GetParam(values, "shapedata")
+    if err != nil { 
+        return 500, err.Error()
+    }
+
+    err = json.Unmarshal(param, shape)
+    if err != nil { 
+        return 500, fmt.Sprintf("Invalid shapedata: %s", err.Error())
+    }
+    // check validity, as in GET, then place shape and trigger callback
+    return 200, fmt.Sprintf("OK %i, %v", game_id, shape)
+}
+
 
 /** Ticks **/
 
@@ -38,16 +124,8 @@ func (tr TickResource) Get(values url.Values) (int, interface{}) {
     return 200, fmt.Sprintf("OK - Game # %i ticked", game_id)
 }
 
-/** Shape **/
-type Shape struct { 
-    Width int
-    Data []bool
-    Position [2]int
-}
-
 
 /** Gameboard **/
-
 type Gameboard struct {
     Level int
     Lines int
