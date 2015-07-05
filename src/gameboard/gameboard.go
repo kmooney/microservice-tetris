@@ -7,6 +7,8 @@ import (
     "strconv"
 )
 
+// TODO: Create validation and shape placement resources.
+
 /** Ticks **/
 
 type TickResource struct { 
@@ -30,22 +32,33 @@ func (tr TickResource) Get(values url.Values) (int, interface{}) {
             return 500, "Cannot convert game_id to int"
         }
     }
+    // maybe this is a goroutine?  we can return quick from this
+    // and rely on the callback to notify clients....
     tr.Gameboards[game_id].Tick()
-    return 200, fmt.Sprintf("OK - Game # %v", values["game_id"])
+    return 200, fmt.Sprintf("OK - Game # %i ticked", game_id)
 }
+
+/** Shape **/
+type Shape struct { 
+    Width int
+    Data []bool
+    Position [2]int
+}
+
 
 /** Gameboard **/
 
-type Gameboard struct { 
+type Gameboard struct {
     Level int
     Lines int
     Score int
     Shapedata map[int]map[int]bool
+    CurrentShape Shape
     Gameover bool
 }
 
 func (gb Gameboard) Tick () (error) { 
-    /*
+    /**
        1.  Check to see if any rows are completed.
            a)  If yes, line count should be increased
            b)  If yes, score should be increased
@@ -59,14 +72,22 @@ func (gb Gameboard) Tick () (error) {
 
        4. Has anything changed (gameover, lines, level, score, shapes)?
            a)  Notify callback listeners.
-    */
-
+    **/
     return nil
+}
+
+func (gb Gameboard) ValidShapePosition(s Shape) (bool) {
+    /**
+        Make sure the shape and its position fall within
+        the bounds of the gameboard and do not collide with any
+        of the placed-shape data.
+    **/
+    return false
 }
 
 type Gameboards map[int]Gameboard
 
-type GameboardResource struct { 
+type GameboardResource struct {
     restlite.PutNotSupported
     restlite.DeleteNotSupported
     Gameboards Gameboards
@@ -84,7 +105,6 @@ func (GameboardResource) Post(values url.Values) (int, interface{}) {
 
 /** Subscriptions **/
 
-
 type Subscription struct { 
     GameID int
     Property string
@@ -92,6 +112,8 @@ type Subscription struct {
     ResponseUrl string
 }
 
+// TODO Subscriptions should be indexed by GameID and ResponseUrl, not just GameID
+// this way, we can have multiple observers on the same GameID
 type Subscriptions map[int]Subscription
 
 type SubscriptionResource struct {
