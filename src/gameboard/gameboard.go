@@ -14,7 +14,6 @@ const HEIGHT uint = 20
 
 // TODO: Create validation and shape placement resources.
 
-
 /** Shape **/
 type Shape struct { 
     Width int
@@ -124,14 +123,15 @@ func (tr TickResource) Get(values url.Values) (int, interface{}) {
     return 200, fmt.Sprintf("OK - Game # %i ticked", game_id)
 }
 
+type Shapedata_t map[string]map[string]bool
 
 /** Gameboard **/
 type Gameboard struct {
     Level int
     Lines int
     Score int
-    Shapedata map[int]map[int]bool
-    CurrentShape Shape
+    Shapedata Shapedata_t
+    CurrentShape *Shape
     Gameover bool
 }
 
@@ -171,14 +171,36 @@ type GameboardResource struct {
     Gameboards Gameboards
 }
 
-func (GameboardResource) Get(values url.Values) (int, interface{}) { 
-    data := map[string]string{"game": "board"}
-    return 200, data
+func (gr GameboardResource) Get(values url.Values) (int, interface{}) { 
+    game_id_data, err := GetParam(values, "game_id")
+    game_id_string := string(game_id_data)
+    var game_id int
+    game_id, err  = strconv.Atoi(game_id_string)
+
+    if err != nil {
+        return 500, "Can't convert Game ID"
+    }
+    gameboard, exists := gr.Gameboards[game_id]
+    if exists == false {
+        return 404, "Game ID not found"
+    }
+    return 200, gameboard
 }
 
-func (GameboardResource) Post(values url.Values) (int, interface{}) { 
-    data := map[string]string{"you_posted": "a new gameboard"}
-    return 200, data
+func (gr GameboardResource) Post(values url.Values) (int, interface{}) { 
+    game_id_data, err := GetParam(values, "game_id")
+    game_id_string := string(game_id_data)
+    var game_id int
+    game_id, err  = strconv.Atoi(game_id_string)
+    if err != nil { 
+        return 500, "Game ID must be int value"
+    }
+    _, check := gr.Gameboards[game_id]
+    if check != false { 
+        return 500, "Game is already created, cannot replace"
+    }
+    gr.Gameboards[game_id] = Gameboard{1, 0, 0, make(Shapedata_t), nil, false}
+    return 200, "OK"
 }
 
 /** Subscriptions **/
