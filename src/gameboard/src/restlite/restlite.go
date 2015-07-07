@@ -71,6 +71,7 @@ func (api *API) requestHandler(resource Resource) http.HandlerFunc {
         } 
         content, err := json.Marshal(data)
         if err != nil { 
+            fmt.Println("Error: ", err.Error())
             api.Abort(rw, 500)
         }
         rw.WriteHeader(code)
