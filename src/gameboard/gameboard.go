@@ -7,6 +7,7 @@ import (
     "strconv"
     "errors"
     "encoding/json"
+    "io"
 )
 
 const WIDTH uint = 10
@@ -23,7 +24,7 @@ type Shape struct {
 
 type ShapeResource struct { 
     restlite.DeleteNotSupported
-    restlite.PostNotSupported
+    restlite.GetNotSupported
     Gameboards Gameboards
 }
 
@@ -36,28 +37,25 @@ func GetParam(values url.Values, p string) ([]byte, error) {
     return []byte(param[0]), nil
 }
 
-func (sr ShapeResource) Get(values url.Values) (int, interface{}) {
+func (sr ShapeResource) Post(values url.Values, body io.Reader) (int, interface{}) {
     var game_id int
     var err error
     var param []byte
     var shape Shape 
     var valid bool
-
+    
     param, err = GetParam(values, "game_id")
     if err != nil { 
         return 500, err.Error()
     }
     game_id, err = strconv.Atoi(string(param))
+    
     if err != nil {
-        return 500, err.Error()
+        return 500, fmt.Sprintf("Param is not int %v", err.Error())
     }
-
-    param, err = GetParam(values, "shapedata")
-    if err != nil {
-        return 500, err.Error()
-    }
-
-    err = json.Unmarshal(param, shape)
+    
+    decoder := json.NewDecoder(body)
+    err = decoder.Decode(&shape)
     if err != nil {
         return 500, fmt.Sprintf("Invalid shapedata: %s", err.Error())
     }
@@ -67,14 +65,14 @@ func (sr ShapeResource) Get(values url.Values) (int, interface{}) {
     }
     if  valid {
         // TODO check validity, else return error
-        return 200, fmt.Sprintf("OK %i, %v", game_id, shape)
+        return 200, "OK"
     } else {
         return 412, "Precondition Failed - Precondition was shape is valid for board."
     }
 }
 
 // put the shape in the position 
-func (sr ShapeResource) Put(values url.Values) (int, interface{}) { 
+func (sr ShapeResource) Put(values url.Values, body io.Reader) (int, interface{}) { 
     var game_id int
     var err error
     var param []byte
@@ -90,12 +88,8 @@ func (sr ShapeResource) Put(values url.Values) (int, interface{}) {
         return 500, err.Error()
     }
 
-    param, err = GetParam(values, "shapedata")
-    if err != nil { 
-        return 500, err.Error()
-    }
-
-    err = json.Unmarshal(param, shape)
+    decoder := json.NewDecoder(body)
+    err = decoder.Decode(&shape)
     if err != nil { 
         return 500, fmt.Sprintf("Invalid shapedata: %s", err.Error())
     }
@@ -121,7 +115,7 @@ type TickResource struct {
 }
 
 
-func (tr TickResource) Get(values url.Values) (int, interface{}) {
+func (tr TickResource) Get(values url.Values, body io.Reader) (int, interface{}) {
     var game_id int
     var err error
     game_id_param := values["game_id"]
@@ -191,7 +185,7 @@ type GameboardResource struct {
     Gameboards Gameboards
 }
 
-func (gr GameboardResource) Get(values url.Values) (int, interface{}) { 
+func (gr GameboardResource) Get(values url.Values, body io.Reader) (int, interface{}) { 
     game_id_data, err := GetParam(values, "game_id")
     game_id_string := string(game_id_data)
     var game_id int
@@ -207,7 +201,7 @@ func (gr GameboardResource) Get(values url.Values) (int, interface{}) {
     return 200, gameboard
 }
 
-func (gr GameboardResource) Post(values url.Values) (int, interface{}) { 
+func (gr GameboardResource) Post(values url.Values, body io.Reader) (int, interface{}) { 
     game_id_data, err := GetParam(values, "game_id")
     game_id_string := string(game_id_data)
     var game_id int
@@ -240,7 +234,7 @@ type SubscriptionResource struct {
     Subscriptions Subscriptions
 }
 
-func (sr SubscriptionResource) Get(values url.Values) (int, interface{}) { 
+func (sr SubscriptionResource) Get(values url.Values, body io.Reader) (int, interface{}) { 
     var game_id int
     game_id_param := values["game_id"]
     if len(game_id_param) == 1 { 
@@ -250,7 +244,7 @@ func (sr SubscriptionResource) Get(values url.Values) (int, interface{}) {
     return 500, fmt.Sprintf("Need to define game_id parameter")
 }
 
-func (sr SubscriptionResource) Post(values url.Values) (int, interface{}) { 
+func (sr SubscriptionResource) Post(values url.Values, body io.Reader) (int, interface{}) { 
     var game_id int
     var response_method string
     var property string
@@ -291,7 +285,7 @@ func (sr SubscriptionResource) Post(values url.Values) (int, interface{}) {
     return 200, "Posted"
 }
 
-func (sr SubscriptionResource) Put(values url.Values) (int, interface{}) { 
+func (sr SubscriptionResource) Put(values url.Values, body io.Reader) (int, interface{}) { 
     var game_id int
     var response_method string
     var property string
@@ -332,7 +326,7 @@ func (sr SubscriptionResource) Put(values url.Values) (int, interface{}) {
     return 200, "Put"
 }
 
-func (sr SubscriptionResource) Delete(values url.Values) (int, interface{}) { 
+func (sr SubscriptionResource) Delete(values url.Values, body io.Reader) (int, interface{}) { 
     var game_id int
     var err error
     game_id_param := values["game_id"]
@@ -365,11 +359,15 @@ func main() {
     subscriptionResource := new(SubscriptionResource)
     subscriptionResource.Subscriptions = make(Subscriptions)
 
+    shapeResource := new(ShapeResource)
+    shapeResource.Gameboards = gameboards
+
     var api = new (restlite.API)
 
     api.AddResource(tickResource, "/tick")
     api.AddResource(gameboardResource, "/game")
     api.AddResource(subscriptionResource, "/subscribe")
+    api.AddResource(shapeResource, "/shape")
 
     api.Start(8000)
 }
