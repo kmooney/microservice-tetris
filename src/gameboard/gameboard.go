@@ -36,32 +36,41 @@ func GetParam(values url.Values, p string) ([]byte, error) {
     return []byte(param[0]), nil
 }
 
-func (vr ShapeResource) Get(values url.Values) (int, interface{}) {
+func (sr ShapeResource) Get(values url.Values) (int, interface{}) {
     var game_id int
     var err error
     var param []byte
     var shape Shape 
+    var valid bool
 
     param, err = GetParam(values, "game_id")
     if err != nil { 
         return 500, err.Error()
     }
     game_id, err = strconv.Atoi(string(param))
-    if err != nil { 
+    if err != nil {
         return 500, err.Error()
     }
 
     param, err = GetParam(values, "shapedata")
-    if err != nil { 
+    if err != nil {
         return 500, err.Error()
     }
 
     err = json.Unmarshal(param, shape)
-    if err != nil { 
+    if err != nil {
         return 500, fmt.Sprintf("Invalid shapedata: %s", err.Error())
     }
-    // check validity, else return error
-    return 200, fmt.Sprintf("OK %i, %v", game_id, shape)
+    valid, err = sr.Gameboards[game_id].Valid(shape)
+    if err != nil { 
+        return 500, err.Error()
+    }
+    if  valid {
+        // TODO check validity, else return error
+        return 200, fmt.Sprintf("OK %i, %v", game_id, shape)
+    } else {
+        return 412, "Precondition Failed - Precondition was shape is valid for board."
+    }
 }
 
 // put the shape in the position 
@@ -70,6 +79,7 @@ func (sr ShapeResource) Put(values url.Values) (int, interface{}) {
     var err error
     var param []byte
     var shape Shape 
+    var valid bool
 
     param, err = GetParam(values, "game_id")
     if err != nil { 
@@ -89,13 +99,20 @@ func (sr ShapeResource) Put(values url.Values) (int, interface{}) {
     if err != nil { 
         return 500, fmt.Sprintf("Invalid shapedata: %s", err.Error())
     }
-    // check validity, as in GET, then place shape and trigger callback
-    return 200, fmt.Sprintf("OK %i, %v", game_id, shape)
+    valid, err = sr.Gameboards[game_id].Valid(shape)
+    if err != nil { 
+        return 500, err.Error()
+    }
+    if valid {
+        // TODO check validity, as in GET, then place shape and trigger callback
+        sr.Gameboards[game_id].Place(shape)
+        return 200, fmt.Sprintf("OK %i, %v", game_id, shape)
+    } else {
+        return 412, "Precondition Failed - Precondition was shape is valid for board."
+    }
 }
 
-
 /** Ticks **/
-
 type TickResource struct { 
     restlite.PutNotSupported
     restlite.DeleteNotSupported
@@ -103,8 +120,7 @@ type TickResource struct {
     Gameboards Gameboards
 }
 
-/** THINK: What's the semantically correct HTTP verb to perform a tick - probably
-    not a GET, why would you "GET" a Tick resource? **/
+
 func (tr TickResource) Get(values url.Values) (int, interface{}) {
     var game_id int
     var err error
@@ -154,13 +170,17 @@ func (gb Gameboard) Tick () (error) {
     return nil
 }
 
-func (gb Gameboard) ValidShapePosition(s Shape) (bool) {
+func (gb Gameboard) Valid(s Shape) (bool, error) {
     /**
         Make sure the shape and its position fall within
         the bounds of the gameboard and do not collide with any
         of the placed-shape data.
     **/
-    return false
+    return false, nil
+}
+
+func (gb Gameboard) Place(s Shape) (error) {
+    return nil
 }
 
 type Gameboards map[int]Gameboard
