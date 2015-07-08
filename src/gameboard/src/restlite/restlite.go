@@ -58,7 +58,6 @@ func (api *API) requestHandler(resource Resource) http.HandlerFunc {
         var err error
 
         request.ParseForm()
-        fmt.Println(request)
         method := request.Method
         values := request.Form
 
