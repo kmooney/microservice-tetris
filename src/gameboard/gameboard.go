@@ -170,7 +170,7 @@ func (gb Gameboard) Valid(s Shape) (bool, error) {
         the bounds of the gameboard and do not collide with any
         of the placed-shape data.
     **/
-    return false, nil
+    return true, nil
 }
 
 func (gb Gameboard) Place(s Shape) (error) {
