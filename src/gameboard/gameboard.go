@@ -100,7 +100,7 @@ func (sr ShapeResource) Put(values url.Values, body io.Reader) (int, interface{}
     if valid {
         // TODO check validity, as in GET, then place shape and trigger callback
         sr.Gameboards[game_id].Place(shape)
-        return 200, fmt.Sprintf("OK %i, %v", game_id, shape)
+        return 200, fmt.Sprintf("OK %d, %v", game_id, shape)
     } else {
         return 412, "Precondition Failed - Precondition was shape is valid for board."
     }
@@ -130,7 +130,7 @@ func (tr TickResource) Get(values url.Values, body io.Reader) (int, interface{})
     // maybe this is a goroutine?  we can return quick from this
     // and rely on the callback to notify clients....
     tr.Gameboards[game_id].Tick()
-    return 200, fmt.Sprintf("OK - Game # %i ticked", game_id)
+    return 200, fmt.Sprintf("OK - Game # %d ticked", game_id)
 }
 
 type Shapedata_t map[string]map[string]bool
@@ -174,10 +174,14 @@ func (gb Gameboard) Valid(s Shape) (bool, error) {
     var col int
     var k int
     var l = len(s.Data)
-    for k = 0; k <= l; k++ {
+    for k = 0; k < l; k++ {
         col = (k % s.Width) + s.Position[1]
         row = (k / s.Width) + s.Position[0]
-        if gb.Shapedata[string(row)][string(col)] == true {
+        _, exists := gb.Shapedata[fmt.Sprintf("%d", row)]
+        if ! exists {
+            gb.Shapedata[fmt.Sprintf("%d", row)] = make(map[string]bool)
+        }
+        if gb.Shapedata[fmt.Sprintf("%d",row)][fmt.Sprintf("%d", col)] == true && s.Data[k] == true {
             return false, nil
         }
         if row >= 20 || row < 0 || col >= 10 || col < 0 {
@@ -188,6 +192,26 @@ func (gb Gameboard) Valid(s Shape) (bool, error) {
 }
 
 func (gb Gameboard) Place(s Shape) (error) {
+    var valid bool 
+    var err error
+    var row int
+    var col int
+    var k int
+    var l = len(s.Data)
+
+    valid, err = gb.Valid(s)
+    if err != nil { 
+        return err
+    }
+    if !valid {
+        return errors.New("Bad board data - shape doesn't fit!")
+    }
+
+    for k = 0; k < l; k++ {
+        col = (k % s.Width) + s.Position[1]
+        row = (k / s.Width) + s.Position[0]
+        gb.Shapedata[fmt.Sprintf("%d",row)][fmt.Sprintf("%d", col)] = s.Data[k]
+    }
     return nil
 }
 
@@ -362,7 +386,7 @@ func (sr SubscriptionResource) Delete(values url.Values, body io.Reader) (int, i
 }
 
 func main() {
-    gameboards := make(Gameboards)    
+    gameboards := make(Gameboards)
 
     gameboardResource := new(GameboardResource)
     gameboardResource.Gameboards = gameboards
