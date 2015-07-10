@@ -19,7 +19,7 @@ const HEIGHT uint = 20
 type Shape struct { 
     Width int
     Data []bool
-    Position [2]int
+    Position [2]int // row, column
 }
 
 type ShapeResource struct { 
@@ -170,6 +170,20 @@ func (gb Gameboard) Valid(s Shape) (bool, error) {
         the bounds of the gameboard and do not collide with any
         of the placed-shape data.
     **/
+    var row int
+    var col int
+    var k int
+    var l = len(s.Data)
+    for k = 0; k <= l; k++ {
+        col = (k % s.Width) + s.Position[1]
+        row = (k / s.Width) + s.Position[0]
+        if gb.Shapedata[string(row)][string(col)] == true {
+            return false, nil
+        }
+        if row >= 20 || row < 0 || col >= 10 || col < 0 {
+            return false, nil
+        }
+    }
     return true, nil
 }
 
