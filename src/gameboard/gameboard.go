@@ -13,8 +13,6 @@ import (
 const WIDTH uint = 10
 const HEIGHT uint = 20
 
-// TODO: Create validation and shape placement resources.
-
 /** Shape **/
 type Shape struct { 
     Width int
@@ -45,9 +43,11 @@ func (sr ShapeResource) Post(values url.Values, body io.Reader) (int, interface{
     var valid bool
     
     param, err = GetParam(values, "game_id")
+
     if err != nil { 
         return 500, err.Error()
     }
+
     game_id, err = strconv.Atoi(string(param))
     
     if err != nil {
@@ -71,7 +71,7 @@ func (sr ShapeResource) Post(values url.Values, body io.Reader) (int, interface{
     }
 }
 
-// put the shape in the position 
+// put the shape in the position
 func (sr ShapeResource) Put(values url.Values, body io.Reader) (int, interface{}) { 
     var game_id int
     var err error
@@ -83,6 +83,7 @@ func (sr ShapeResource) Put(values url.Values, body io.Reader) (int, interface{}
     if err != nil { 
         return 500, err.Error()
     }
+
     game_id, err = strconv.Atoi(string(param))
     if err != nil { 
         return 500, err.Error()
@@ -141,7 +142,6 @@ type Gameboard struct {
     Lines int
     Score int
     Shapedata Shapedata_t
-    CurrentShape *Shape
     Gameover bool
 }
 
@@ -152,15 +152,63 @@ func (gb Gameboard) Tick () (error) {
            b)  If yes, score should be increased
            c)  If yes, completed lines should be cleared
 
-       2.  Should the game be over?
-
-       3.  Should the game be deleted?  (how to tell?)
-           a)  If yes, delete the game from the map
-           b)  Notify callback listeners.
-
-       4. Has anything changed (gameover, lines, level, score, shapes)?
+       2. Has anything changed (gameover, lines, level, score, shapes)?
            a)  Notify callback listeners.
     **/
+    var changed bool
+    var complete_row bool
+    var row_count int
+    var removed_row int
+    var move_idx int
+    var row map[string]bool
+    var row_idx int
+
+    for row_idx = 0; row_idx < 20; row_idx ++ {
+        row = gb.Shapedata[fmt.Sprintf("%d", row_idx)]
+        complete_row = true
+
+        if len(row) != 10 {
+            complete_row = false
+            continue
+        }
+
+        for _, cell := range row {
+            if cell == false {
+                complete_row = false
+            }
+        }
+
+        if complete_row {
+            delete (gb.Shapedata, fmt.Sprintf("%d",row_idx))
+            changed = true
+            row_count ++ 
+            removed_row = row_idx
+            for move_idx = 0; move_idx < removed_row; move_idx ++ {
+                var temprow map[string]bool
+                temprow = gb.Shapedata[fmt.Sprintf("%d", move_idx)]
+                gb.Shapedata[fmt.Sprintf("%d", move_idx+1)] = temprow;
+            }
+            gb.Shapedata["0"] = make(map[string]bool)
+        }
+    }
+
+    if row_count > 0 { 
+        if row_count == 4 {
+            gb.Score += 2500
+        }
+        if row_count > 1 {
+            gb.Score += row_count * 500
+        } else { 
+            gb.Score += 100
+        }
+    }
+
+    // TODO notify subscribers
+    if changed { 
+        // DO SOMETHING
+    }
+
+
     return nil
 }
 
@@ -251,7 +299,7 @@ func (gr GameboardResource) Post(values url.Values, body io.Reader) (int, interf
     if check != false { 
         return 500, "Game is already created, cannot replace"
     }
-    gr.Gameboards[game_id] = Gameboard{1, 0, 0, make(Shapedata_t), nil, false}
+    gr.Gameboards[game_id] = Gameboard{1, 0, 0, make(Shapedata_t), false}
     return 200, "OK"
 }
 
