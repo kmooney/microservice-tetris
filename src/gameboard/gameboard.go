@@ -245,9 +245,11 @@ func (gb Gameboard) Place(s Shape) (error) {
     }
 
     for k = 0; k < l; k++ {
-        col = (k % s.Width) + s.Position[1]
         row = (k / s.Width) + s.Position[0]
-        gb.Shapedata[row][col] = s.Data[k]
+        col = (k % s.Width) + s.Position[1] 
+        if (s.Data[k]) {
+            gb.Shapedata[row][col] = true
+        }
     }
     return nil
 }
@@ -291,7 +293,7 @@ func (gr GameboardResource) Post(values url.Values, body io.Reader) (int, interf
     shapeData := make([][]bool, 20)
     shapeValues := make([]bool, 10*20)
     for i := range shapeData {
-        shapeData[i] = shapeValues[:10]
+        shapeData[i], shapeValues = shapeValues[:10], shapeValues[10:]
     }
     gr.Gameboards[game_id] = Gameboard{1, 0, 0, shapeData, false}
     return 200, "OK"
