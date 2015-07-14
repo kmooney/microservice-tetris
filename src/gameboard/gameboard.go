@@ -134,7 +134,7 @@ func (tr TickResource) Get(values url.Values, body io.Reader) (int, interface{})
     return 200, fmt.Sprintf("OK - Game # %d ticked", game_id)
 }
 
-type Shapedata_t map[string]map[string]bool
+type Shapedata_t [][]bool
 
 /** Gameboard **/
 type Gameboard struct {
@@ -158,13 +158,11 @@ func (gb Gameboard) Tick () (error) {
     var changed bool
     var complete_row bool
     var row_count int
-    var removed_row int
-    var move_idx int
-    var row map[string]bool
+    var row []bool
     var row_idx int
 
     for row_idx = 0; row_idx < 20; row_idx ++ {
-        row = gb.Shapedata[fmt.Sprintf("%d", row_idx)]
+        row = gb.Shapedata[row_idx]
         complete_row = true
 
         if len(row) != 10 {
@@ -179,16 +177,10 @@ func (gb Gameboard) Tick () (error) {
         }
 
         if complete_row {
-            delete (gb.Shapedata, fmt.Sprintf("%d",row_idx))
-            changed = true
-            row_count ++ 
-            removed_row = row_idx
-            for move_idx = 0; move_idx < removed_row; move_idx ++ {
-                var temprow map[string]bool
-                temprow = gb.Shapedata[fmt.Sprintf("%d", move_idx)]
-                gb.Shapedata[fmt.Sprintf("%d", move_idx+1)] = temprow;
-            }
-            gb.Shapedata["0"] = make(map[string]bool)
+            gb.Shapedata = append(gb.Shapedata[:row_idx], gb.Shapedata[(row_idx+1):]...)
+            gb.Shapedata = append(
+                [][]bool{{false,false,false,false,false,false,false,false,false,false}},
+                gb.Shapedata...)
         }
     }
 
@@ -225,16 +217,13 @@ func (gb Gameboard) Valid(s Shape) (bool, error) {
     for k = 0; k < l; k++ {
         col = (k % s.Width) + s.Position[1]
         row = (k / s.Width) + s.Position[0]
-        _, exists := gb.Shapedata[fmt.Sprintf("%d", row)]
-        if ! exists {
-            gb.Shapedata[fmt.Sprintf("%d", row)] = make(map[string]bool)
-        }
-        if gb.Shapedata[fmt.Sprintf("%d",row)][fmt.Sprintf("%d", col)] == true && s.Data[k] == true {
-            return false, nil
-        }
         if row >= 20 || row < 0 || col >= 10 || col < 0 {
             return false, nil
         }
+        if gb.Shapedata[row][col] == true && s.Data[k] == true {
+            return false, nil 
+        }
+        
     }
     return true, nil
 }
@@ -258,7 +247,7 @@ func (gb Gameboard) Place(s Shape) (error) {
     for k = 0; k < l; k++ {
         col = (k % s.Width) + s.Position[1]
         row = (k / s.Width) + s.Position[0]
-        gb.Shapedata[fmt.Sprintf("%d",row)][fmt.Sprintf("%d", col)] = s.Data[k]
+        gb.Shapedata[row][col] = s.Data[k]
     }
     return nil
 }
@@ -299,7 +288,12 @@ func (gr GameboardResource) Post(values url.Values, body io.Reader) (int, interf
     if check != false { 
         return 500, "Game is already created, cannot replace"
     }
-    gr.Gameboards[game_id] = Gameboard{1, 0, 0, make(Shapedata_t), false}
+    shapeData := make([][]bool, 20)
+    shapeValues := make([]bool, 10*20)
+    for i := range shapeData {
+        shapeData[i] = shapeValues[:10]
+    }
+    gr.Gameboards[game_id] = Gameboard{1, 0, 0, shapeData, false}
     return 200, "OK"
 }
 
