@@ -165,11 +165,6 @@ func (gb Gameboard) Tick () (error) {
         row = gb.Shapedata[row_idx]
         complete_row = true
 
-        if len(row) != 10 {
-            complete_row = false
-            continue
-        }
-
         for _, cell := range row {
             if cell == false {
                 complete_row = false
@@ -301,112 +296,53 @@ func (gr GameboardResource) Post(values url.Values, body io.Reader) (int, interf
 
 /** Subscriptions **/
 
-type Subscription struct { 
-    GameID int
-    Property string
-    ResponseMethod string
-    ResponseUrl string
-}
-
-// TODO Subscriptions should be indexed by GameID and ResponseUrl, not just GameID
-// this way, we can have multiple observers on the same GameID
-type Subscriptions map[int]Subscription
+type Subscriptions map[int]map[string]bool
 
 type SubscriptionResource struct {
     Subscriptions Subscriptions
+    restlite.PutNotSupported
 }
 
-func (sr SubscriptionResource) Get(values url.Values, body io.Reader) (int, interface{}) { 
+func (sr SubscriptionResource) Get(values url.Values, body io.Reader) (int, interface{}) {
     var game_id int
     game_id_param := values["game_id"]
-    if len(game_id_param) == 1 { 
+    if len(game_id_param) == 1 {
         game_id, _ = strconv.Atoi(game_id_param[0])
-        return 400, sr.Subscriptions[game_id]
+        return 200, sr.Subscriptions[game_id]
     }
     return 500, fmt.Sprintf("Need to define game_id parameter")
 }
 
-func (sr SubscriptionResource) Post(values url.Values, body io.Reader) (int, interface{}) { 
+func (sr SubscriptionResource) Post(values url.Values, body io.Reader) (int, interface{}) {
     var game_id int
-    var response_method string
-    var property string
     var response_url string
     var err error
 
     game_id_param := values["game_id"]
-    property_param := values["property"]
-    response_method_param := values["response_method"]
     response_url_param := values["response_url"]
 
     if len(game_id_param) != 1 {
         return 500, "Need to define game_id"
-    } else { 
+    } else {
         game_id, err = strconv.Atoi(game_id_param[0])
-        if (err != nil) { 
+        if (err != nil) {
             return 500, fmt.Sprintf("Game ID must be an integer: %v", err)
         }
     }
-    if len(response_method_param) != 1 { 
-        response_method = "POST"
-    } else { 
-        response_method = response_method_param[0]
-    }
-    if len(response_url_param) != 1 { 
+    if len(response_url_param) != 1 {
         return 500, "Need to define response_url"
     } else { 
         response_url = response_url_param[0]
-    }
-    if len(property_param) == 1 {
-        property = property_param[0]
-    }
-    _, exists := sr.Subscriptions[game_id]
-    if exists { 
-        return 500, "Subscription already set - use PUT if you want to change it"
-    }
-    sr.Subscriptions[game_id] = Subscription{game_id, property, response_method, response_url} 
-    return 200, "Posted"
-}
-
-func (sr SubscriptionResource) Put(values url.Values, body io.Reader) (int, interface{}) { 
-    var game_id int
-    var response_method string
-    var property string
-    var response_url string
-    var err error
-
-    game_id_param := values["game_id"]
-    property_param := values["property"]
-    response_method_param := values["response_method"]
-    response_url_param := values["response_url"]
-
-    if len(game_id_param) != 1 {
-        return 500, "Need to define game_id"
-    } else { 
-        game_id, err = strconv.Atoi(game_id_param[0])
-        if (err != nil) { 
-            return 500, fmt.Sprintf("Game ID must be an integer: %v", err)
-        }
-    }
-    if len(response_method_param) != 1 { 
-        response_method = "POST"
-    } else { 
-        response_method = response_method_param[0]
-    }
-    if len(response_url_param) != 1 { 
-        return 500, "Need to define response_url"
-    } else { 
-        response_url = response_url_param[0]
-    }
-    if len(property_param) == 1 {
-        property = property_param[0]
     }
     _, exists := sr.Subscriptions[game_id]
     if !exists { 
-        return 404, "Subscription does not exist, POST to create one."
+        sr.Subscriptions[game_id] = make(map[string]bool)
     }
-    sr.Subscriptions[game_id] = Subscription{game_id, property, response_method, response_url} 
-    return 200, "Put"
+
+    sr.Subscriptions[game_id][response_url]=true
+    return 200, "Posted"
 }
+
 
 func (sr SubscriptionResource) Delete(values url.Values, body io.Reader) (int, interface{}) { 
     var game_id int
