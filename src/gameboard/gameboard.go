@@ -2,11 +2,13 @@ package main
 
 import (
     "net/url"
+    "net/http"
     "restlite"
     "fmt"
     "strconv"
     "errors"
     "encoding/json"
+    "bytes"
     "io"
 )
 
@@ -24,6 +26,7 @@ type ShapeResource struct {
     restlite.DeleteNotSupported
     restlite.GetNotSupported
     Gameboards Gameboards
+    Subscriptions Subscriptions
 }
 
 func GetParam(values url.Values, p string) ([]byte, error) { 
@@ -63,8 +66,7 @@ func (sr ShapeResource) Post(values url.Values, body io.Reader) (int, interface{
     if err != nil { 
         return 500, err.Error()
     }
-    if  valid {
-        // TODO check validity, else return error
+    if valid {
         return 200, "OK"
     } else {
         return 412, "Precondition Failed - Precondition was shape is valid for board."
@@ -103,7 +105,7 @@ func (sr ShapeResource) Put(values url.Values, body io.Reader) (int, interface{}
         sr.Gameboards[game_id].Place(shape)
         return 200, fmt.Sprintf("OK %d, %v", game_id, shape)
     } else {
-        return 412, "Precondition Failed - Precondition was shape is valid for board."
+        return 412, "PUT Failed - Precondition was shape is valid for board."
     }
 }
 
@@ -113,12 +115,14 @@ type TickResource struct {
     restlite.DeleteNotSupported
     restlite.PostNotSupported
     Gameboards Gameboards
+    Subscriptions Subscriptions
 }
 
 
 func (tr TickResource) Get(values url.Values, body io.Reader) (int, interface{}) {
     var game_id int
     var err error
+    var changed bool
     game_id_param := values["game_id"]
     if len(game_id_param) != 1 { 
         return 500, "Bad game_id parameter"
@@ -130,7 +134,14 @@ func (tr TickResource) Get(values url.Values, body io.Reader) (int, interface{})
     }
     // maybe this is a goroutine?  we can return quick from this
     // and rely on the callback to notify clients....
-    tr.Gameboards[game_id].Tick()
+    changed, err = tr.Gameboards[game_id].Tick()
+    if err != nil { 
+        return 500, err.Error()
+    }
+    if changed { 
+        fmt.Println("Ok, it changed - I'm calling notify on the subscriptions")
+        go tr.Subscriptions.Notify(game_id, tr.Gameboards[game_id])
+    }
     return 200, fmt.Sprintf("OK - Game # %d ticked", game_id)
 }
 
@@ -145,7 +156,7 @@ type Gameboard struct {
     Gameover bool
 }
 
-func (gb Gameboard) Tick () (error) { 
+func (gb *Gameboard) Tick () (bool, error) { 
     /**
        1.  Check to see if any rows are completed.
            a)  If yes, line count should be increased
@@ -173,9 +184,8 @@ func (gb Gameboard) Tick () (error) {
 
         if complete_row {
             gb.Shapedata = append(gb.Shapedata[:row_idx], gb.Shapedata[(row_idx+1):]...)
-            gb.Shapedata = append(
-                [][]bool{{false,false,false,false,false,false,false,false,false,false}},
-                gb.Shapedata...)
+            gb.Shapedata = append([][]bool{{false,false,false,false,false,false,false,false,false,false}},gb.Shapedata...)
+            row_count ++
         }
     }
 
@@ -188,15 +198,11 @@ func (gb Gameboard) Tick () (error) {
         } else { 
             gb.Score += 100
         }
+        changed = true
+        gb.Lines += row_count
     }
 
-    // TODO notify subscribers
-    if changed { 
-        // DO SOMETHING
-    }
-
-
-    return nil
+    return changed, nil
 }
 
 func (gb Gameboard) Valid(s Shape) (bool, error) {
@@ -249,7 +255,7 @@ func (gb Gameboard) Place(s Shape) (error) {
     return nil
 }
 
-type Gameboards map[int]Gameboard
+type Gameboards map[int]*Gameboard
 
 type GameboardResource struct {
     restlite.PutNotSupported
@@ -290,13 +296,25 @@ func (gr GameboardResource) Post(values url.Values, body io.Reader) (int, interf
     for i := range shapeData {
         shapeData[i], shapeValues = shapeValues[:10], shapeValues[10:]
     }
-    gr.Gameboards[game_id] = Gameboard{1, 0, 0, shapeData, false}
+    gr.Gameboards[game_id] = &Gameboard{1, 0, 0, shapeData, false}
     return 200, "OK"
 }
 
 /** Subscriptions **/
 
 type Subscriptions map[int]map[string]bool
+
+func (s Subscriptions) Notify(game_id int, g *Gameboard) {
+    //var err error
+    fmt.Printf("Called notify! %v", s[game_id])
+    
+    for url := range(s[game_id]) {
+        var buf bytes.Buffer
+        encoder := json.NewEncoder(&buf)
+        encoder.Encode(g)
+        go http.Post(url, "application/octet-stream", &buf)
+    }
+} 
 
 type SubscriptionResource struct {
     Subscriptions Subscriptions
@@ -367,18 +385,21 @@ func (sr SubscriptionResource) Delete(values url.Values, body io.Reader) (int, i
 
 func main() {
     gameboards := make(Gameboards)
+    subscriptions := make(Subscriptions)
 
     gameboardResource := new(GameboardResource)
     gameboardResource.Gameboards = gameboards
 
     tickResource := new(TickResource)
     tickResource.Gameboards = gameboards
+    tickResource.Subscriptions = subscriptions
 
     subscriptionResource := new(SubscriptionResource)
-    subscriptionResource.Subscriptions = make(Subscriptions)
+    subscriptionResource.Subscriptions = subscriptions
 
     shapeResource := new(ShapeResource)
     shapeResource.Gameboards = gameboards
+    shapeResource.Subscriptions = subscriptions
 
     var api = new (restlite.API)
 
