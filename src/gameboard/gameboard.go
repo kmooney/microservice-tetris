@@ -215,6 +215,8 @@ func (gb Gameboard) Valid(s Shape) (bool, error) {
     var col int
     var k int
     var l = len(s.Data)
+    var floored bool
+
     for k = 0; k < l; k++ {
         col = (k % s.Width) + s.Position[1]
         row = (k / s.Width) + s.Position[0]
@@ -224,9 +226,12 @@ func (gb Gameboard) Valid(s Shape) (bool, error) {
         if gb.Shapedata[row][col] == true && s.Data[k] == true {
             return false, nil 
         }
-        
+        if (row == 19 || gb.Shapedata[row+1][col] == true) && s.Data[k] == true {
+            floored = true
+        } 
     }
-    return true, nil
+
+    return floored, nil
 }
 
 func (gb Gameboard) Place(s Shape) (error) {
